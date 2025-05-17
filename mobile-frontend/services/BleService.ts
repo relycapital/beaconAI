@@ -1,262 +1,239 @@
 /**
  * BLE Service Implementation
- * Follows BeaconAI ruleset for battery optimization and privacy
+ * Implements functionality for Bluetooth Low Energy operations
+ * Following BeaconAI project ruleset for BLE implementation
  */
-import { Platform } from 'react-native';
-import { BleManager, State as BleState, ScanMode } from 'react-native-ble-plx';
-import { PermissionsAndroid } from 'react-native';
+import { BleManager } from 'react-native-ble-plx';
+import { Platform, PermissionsAndroid } from 'react-native';
 import { Profile, PeerProfile } from '../types/profile';
-import { BleState as BleServiceState, BlePermissionStatus } from '../types/ble';
+import { BleState, BlePermissionStatus } from '../types/ble';
 
-// UUID constants for BLE operations
-const BEACON_SERVICE_UUID = '00000000-0000-1000-8000-00805F9B34FB';
-const BEACON_CHARACTERISTIC_UUID = '00000000-0000-1000-8000-00805F9B34FB';
-
-// Convert BLE library state to our app's state enum
-const mapBleStateToServiceState = (state: BleState): BleServiceState => {
-  switch (state) {
-    case BleState.PoweredOn:
-      return BleServiceState.POWERED_ON;
-    case BleState.PoweredOff:
-      return BleServiceState.POWERED_OFF;
-    case BleState.Resetting:
-    case BleState.Unsupported:
-    case BleState.Unauthorized:
-      return BleServiceState.UNAUTHORIZED;
-    default:
-      return BleServiceState.UNKNOWN;
-  }
-};
-
-// Helper function for logging
-const log = (message: string) => {
-  console.log(`[BLE] ${message}`);
-};
-
-// Default BLE configuration
-const DEFAULT_BLE_CONFIG = {
-  expirationTimeMs: 300000, // 5 minutes
-  scanIntervalMs: 10000,    // 10 seconds
-  scanDurationMs: 5000,     // 5 seconds
-  advertisingIntervalMs: 1000 // 1 second
-};
+// Constants for BLE operations
+export const BEACON_SERVICE_UUID = '00000000-0000-1000-8000-00805F9B34FB';
+export const MANUFACTURER_ID = 0xFF; // Custom manufacturer ID
 
 /**
- * Interface for BLE service
+ * BLE configuration interface
  */
-export interface IBleService {
-  initialize(): Promise<boolean>;
-  getState(): Promise<BleServiceState>;
-  checkPermissions(): Promise<BlePermissionStatus>;
-  requestPermissions(): Promise<BlePermissionStatus>;
-  startAdvertising(profile: Profile): Promise<boolean>;
-  stopAdvertising(): Promise<void>;
-  startScanning(onDiscovery: (peer: PeerProfile) => void): Promise<boolean>;
-  stopScanning(): Promise<void>;
-  setTestMode(enabled: boolean): void;
-  getBleConfig(): typeof DEFAULT_BLE_CONFIG;
+interface BleConfig {
+  expirationTimeMs: number;   // Time after which peers are considered expired
+  scanIntervalMs: number;     // Interval between scans
+  scanDurationMs: number;     // Duration of each scan
+  advertisingIntervalMs: number; // Interval between advertisements
 }
 
 /**
- * BLE Service implementation
- * Handles Bluetooth operations for peer discovery
+ * BLE Service Implementation
+ * Follows singleton pattern for global access
  */
-class BleServiceImpl implements IBleService {
+class BleServiceImpl {
   private bleManager: BleManager;
-  private bleState: BleServiceState = BleServiceState.UNKNOWN;
-  private permissionStatus: BlePermissionStatus = BlePermissionStatus.UNKNOWN;
-  private advertisingTimer: NodeJS.Timeout | null = null;
+  private isInitialized: boolean = false;
   private scanningTimer: NodeJS.Timeout | null = null;
-  private isScanning: boolean = false;
-  private testMode: boolean = false;
-  private config = { ...DEFAULT_BLE_CONFIG };
-
+  private advertisingTimer: NodeJS.Timeout | null = null;
+  private isTestMode: boolean = false;
+  
+  /**
+   * Default configuration with battery optimization
+   * Following BeaconAI BLE Implementation guidelines
+   */
+  private config: BleConfig = {
+    expirationTimeMs: 5 * 60 * 1000, // 5 minutes
+    scanIntervalMs: 30 * 1000,       // 30 seconds
+    scanDurationMs: 5 * 1000,        // 5 seconds
+    advertisingIntervalMs: 1000       // 1 second
+  };
+  
   constructor() {
     this.bleManager = new BleManager();
   }
-
+  
   /**
-   * Initialize the BLE service
+   * Initialize BLE service
    */
   async initialize(): Promise<boolean> {
-    // In test mode, skip actual BLE initialization
-    if (this.testMode) {
-      this.bleState = BleServiceState.POWERED_ON;
-      this.permissionStatus = BlePermissionStatus.GRANTED;
-      return true;
-    }
-
+    if (this.isInitialized) return true;
+    
     try {
+      if (this.isTestMode) {
+        // In test mode, skip actual BLE initialization
+        this.isInitialized = true;
+        return true;
+      }
+      
       // Subscribe to BLE state changes
       this.bleManager.onStateChange((state) => {
-        log(`BLE state changed: ${state}`);
-        this.bleState = mapBleStateToServiceState(state);
+        console.log('BLE state changed:', state);
       }, true);
-
-      // Get initial BLE state
-      const state = await this.bleManager.state();
-      this.bleState = mapBleStateToServiceState(state);
-
-      // Check initial permissions
-      this.permissionStatus = await this.checkPermissions();
-
+      
+      this.isInitialized = true;
       return true;
     } catch (error) {
-      log(`BLE initialization error: ${error}`);
+      console.error('Failed to initialize BLE service:', error);
       return false;
     }
   }
-
+  
+  /**
+   * Set test mode (for unit testing)
+   */
+  setTestMode(isTestMode: boolean): void {
+    this.isTestMode = isTestMode;
+  }
+  
   /**
    * Get current BLE state
    */
-  async getState(): Promise<BleServiceState> {
-    if (this.testMode) {
-      return BleServiceState.POWERED_ON;
+  async getState(): Promise<BleState> {
+    if (this.isTestMode) {
+      return BleState.POWERED_ON;
     }
     
     try {
       const state = await this.bleManager.state();
-      this.bleState = mapBleStateToServiceState(state);
-      return this.bleState;
+      
+      switch (state) {
+        case 'PoweredOn':
+          return BleState.POWERED_ON;
+        case 'PoweredOff':
+          return BleState.POWERED_OFF;
+        case 'Unauthorized':
+          return BleState.UNAUTHORIZED;
+        default:
+          return BleState.UNKNOWN;
+      }
     } catch (error) {
-      log(`Error getting BLE state: ${error}`);
-      return BleServiceState.UNKNOWN;
+      console.error('Failed to get BLE state:', error);
+      return BleState.UNKNOWN;
     }
   }
-
+  
   /**
    * Check BLE permissions
    */
   async checkPermissions(): Promise<BlePermissionStatus> {
-    if (this.testMode) {
+    if (this.isTestMode) {
       return BlePermissionStatus.GRANTED;
     }
     
     try {
       if (Platform.OS === 'ios') {
-        // iOS permissions are checked at runtime
+        const state = await this.bleManager.state();
+        if (state === 'Unauthorized') {
+          return BlePermissionStatus.DENIED;
+        }
         return BlePermissionStatus.GRANTED;
       } else if (Platform.OS === 'android') {
-        if (Platform.Version >= 31) { // Android 12+
-          const results = await Promise.all([
-            PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN),
-            PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT),
-            PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION),
-          ]);
-          
-          if (results.every(result => result)) {
-            return BlePermissionStatus.GRANTED;
-          } else {
-            return BlePermissionStatus.DENIED;
-          }
-        } else {
-          const result = await PermissionsAndroid.check(
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-          );
-          return result ? BlePermissionStatus.GRANTED : BlePermissionStatus.DENIED;
-        }
+        const blePermissions = [
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          ...(Platform.Version >= 31 
+            ? [
+                PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+                PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
+                PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT
+              ] 
+            : [])
+        ];
+        
+        const results = await PermissionsAndroid.requestMultiple(blePermissions);
+        
+        // Check if all permissions are granted
+        const allGranted = Object.values(results).every(
+          result => result === PermissionsAndroid.RESULTS.GRANTED
+        );
+        
+        return allGranted 
+          ? BlePermissionStatus.GRANTED 
+          : BlePermissionStatus.DENIED;
       }
       
       return BlePermissionStatus.UNKNOWN;
     } catch (error) {
-      log(`Error checking permissions: ${error}`);
+      console.error('Failed to check BLE permissions:', error);
       return BlePermissionStatus.UNKNOWN;
     }
   }
-
+  
   /**
    * Request BLE permissions
    */
   async requestPermissions(): Promise<BlePermissionStatus> {
-    if (this.testMode) {
+    if (this.isTestMode) {
       return BlePermissionStatus.GRANTED;
     }
     
     try {
       if (Platform.OS === 'ios') {
-        // iOS permissions are requested at runtime by the OS
-        return BlePermissionStatus.GRANTED;
+        // iOS permission request is handled by the system
+        // We just need to check the current status
+        return await this.checkPermissions();
       } else if (Platform.OS === 'android') {
-        if (Platform.Version >= 31) { // Android 12+
-          const results = await Promise.all([
-            PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN),
-            PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT),
-            PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION),
-          ]);
-          
-          if (results.every(result => result === PermissionsAndroid.RESULTS.GRANTED)) {
-            this.permissionStatus = BlePermissionStatus.GRANTED;
-          } else {
-            this.permissionStatus = BlePermissionStatus.DENIED;
-          }
-        } else {
-          const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-            {
-              title: "Location Permission",
-              message: "Bluetooth requires location permission to discover nearby devices.",
-              buttonNeutral: "Ask Me Later",
-              buttonNegative: "Cancel",
-              buttonPositive: "OK"
-            }
-          );
-          
-          this.permissionStatus = granted === PermissionsAndroid.RESULTS.GRANTED
-            ? BlePermissionStatus.GRANTED
-            : BlePermissionStatus.DENIED;
-        }
+        const blePermissions = [
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          ...(Platform.Version >= 31 
+            ? [
+                PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+                PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
+                PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT
+              ] 
+            : [])
+        ];
         
-        return this.permissionStatus;
+        const results = await PermissionsAndroid.requestMultiple(blePermissions);
+        
+        // Check if all permissions are granted
+        const allGranted = Object.values(results).every(
+          result => result === PermissionsAndroid.RESULTS.GRANTED
+        );
+        
+        return allGranted 
+          ? BlePermissionStatus.GRANTED 
+          : BlePermissionStatus.DENIED;
       }
       
       return BlePermissionStatus.UNKNOWN;
     } catch (error) {
-      log(`Error requesting permissions: ${error}`);
+      console.error('Failed to request BLE permissions:', error);
       return BlePermissionStatus.UNKNOWN;
     }
   }
-
+  
   /**
    * Start advertising the user's profile
+   * Battery optimization: Use periodic advertising with compact encoding
    */
   async startAdvertising(profile: Profile): Promise<boolean> {
-    if (this.advertisingTimer) {
-      clearInterval(this.advertisingTimer);
-      this.advertisingTimer = null;
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+    
+    if (this.isTestMode) {
+      // In test mode, simulate advertising
+      this.advertisingTimer = setInterval(() => {
+        console.log('[TEST] Advertising pulse at:', new Date().toISOString());
+      }, this.config.advertisingIntervalMs);
+      return true;
     }
     
     try {
+      // Prepare advertisement data with compact encoding
       const advertisementData = this.encodeProfileForAdvertisement(profile);
       
-      if (this.testMode) {
-        this.log(`Started advertising with data: ${JSON.stringify(advertisementData)}`);
-        
-        // Simulate periodic advertising in test mode
-        this.advertisingTimer = setInterval(() => {
-          this.log(`Advertising pulse at: ${new Date().toISOString()}`);
-        }, this.config.advertisingIntervalMs);
-        
-        return true;
-      }
-      
-      // Real BLE implementation would use:
-      // this.bleManager.startAdvertising(advertisementData)
-      
-      // For now in our implementation, we'll simulate advertising
-      this.log(`Started advertising with data: ${JSON.stringify(advertisementData)}`);
-      
+      // Start periodic advertising (simulated with a timer since react-native-ble-plx
+      // doesn't support direct periodic advertising)
       this.advertisingTimer = setInterval(() => {
-        this.log(`Advertising pulse at: ${new Date().toISOString()}`);
+        console.log('Advertising pulse at:', new Date().toISOString());
+        // Note: In a real implementation, we would refresh the advertisement here
+        // This is a placeholder for real BLE advertising which would be device-specific
       }, this.config.advertisingIntervalMs);
       
       return true;
     } catch (error) {
-      log(`Error starting advertising: ${error}`);
+      console.error('Failed to start BLE advertising:', error);
       return false;
     }
   }
-
+  
   /**
    * Stop advertising
    */
@@ -264,78 +241,55 @@ class BleServiceImpl implements IBleService {
     if (this.advertisingTimer) {
       clearInterval(this.advertisingTimer);
       this.advertisingTimer = null;
-      this.log('Stopped advertising');
     }
     
-    if (!this.testMode) {
-      // Actual BLE implementation would use:
-      // await this.bleManager.stopAdvertising();
-    }
+    // If not in test mode, additional cleanup may be needed here
+    // depending on the specific advertising implementation
   }
-
+  
   /**
-   * Start scanning for peers
+   * Start scanning for nearby BLE devices
+   * Battery optimization: Use interval scanning with low power mode
    */
   async startScanning(onDiscovery: (peer: PeerProfile) => void): Promise<boolean> {
-    if (this.isScanning) {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+    
+    if (this.isTestMode) {
+      // In test mode, generate mock discoveries
+      this.scanningTimer = setInterval(() => {
+        const mockPeer: PeerProfile = {
+          uuid: `mock-${Math.floor(Math.random() * 1000)}`,
+          name: `Mock User ${Math.floor(Math.random() * 10)}`,
+          role: 'Test User',
+          company: 'Mock Co',
+          rssi: -1 * (Math.floor(Math.random() * 50) + 40), // Random RSSI between -40 and -90
+          discoveredAt: new Date().toISOString()
+        };
+        
+        console.log('[TEST] Discovered mock peer:', mockPeer.name);
+        onDiscovery(mockPeer);
+      }, 2000); // Discover a mock peer every 2 seconds
+      
       return true;
     }
     
     try {
-      // Check state and permissions before scanning
-      const state = await this.getState();
-      const permissions = await this.checkPermissions();
+      // Define scan mode based on battery optimization
+      // BALANCED on iOS, LOW_POWER on Android
+      const scanMode = Platform.OS === 'ios' ? 1 : 0;
       
-      if (state !== BleServiceState.POWERED_ON) {
-        log(`Cannot scan: BLE not powered on (state: ${state})`);
-        return false;
-      }
-      
-      if (permissions !== BlePermissionStatus.GRANTED) {
-        log(`Cannot scan: Permissions not granted (status: ${permissions})`);
-        return false;
-      }
-      
-      if (this.testMode) {
-        this.isScanning = true;
-        log('Starting scan cycle (test mode)');
-        
-        // In test mode, simulate finding peers
-        setTimeout(() => {
-          const mockPeer: PeerProfile = {
-            uuid: 'test-device-id',
-            name: 'Test Device',
-            role: 'Developer',
-            company: 'Test Co',
-            rssi: -60,
-            discoveredAt: new Date().toISOString()
-          };
-          
-          onDiscovery(mockPeer);
-        }, 1000);
-        
-        return true;
-      }
-      
-      // Set up scan/pause cycle for battery optimization
-      const startScanCycle = () => {
-        if (!this.isScanning) return;
-        
-        log('Starting scan cycle');
-        
-        // Configure scan mode based on platform
-        let scanMode;
-        if (Platform.OS === 'android') {
-          scanMode = ScanMode.LowLatency;
-        }
-        
-        // Start the scan
+      // Set up interval scanning for battery optimization
+      const runScan = () => {
+        // Start scanning
+        console.log('Starting BLE scan at:', new Date().toISOString());
         this.bleManager.startDeviceScan(
           [BEACON_SERVICE_UUID],
           { scanMode },
           (error, device) => {
             if (error) {
-              log(`Scan error: ${error}`);
+              console.error('BLE scan error:', error);
               return;
             }
             
@@ -348,98 +302,97 @@ class BleServiceImpl implements IBleService {
           }
         );
         
-        // Stop scanning after duration to save battery
+        // Stop scan after scanDurationMs to save battery
         setTimeout(() => {
-          if (this.isScanning) {
-            this.bleManager.stopDeviceScan();
-            log('Pausing scan cycle to save battery');
-            
-            // Resume scanning after pause
-            setTimeout(startScanCycle, 
-              this.config.scanIntervalMs - this.config.scanDurationMs);
-          }
+          console.log('Stopping BLE scan at:', new Date().toISOString());
+          this.bleManager.stopDeviceScan();
         }, this.config.scanDurationMs);
       };
       
-      this.isScanning = true;
-      startScanCycle();
+      // Run scan immediately
+      runScan();
+      
+      // Schedule periodic scans
+      this.scanningTimer = setInterval(runScan, this.config.scanIntervalMs);
+      
       return true;
     } catch (error) {
-      log(`Error starting scanning: ${error}`);
+      console.error('Failed to start BLE scanning:', error);
       return false;
     }
   }
-
+  
   /**
-   * Stop scanning for peers
+   * Stop scanning
    */
   async stopScanning(): Promise<void> {
-    this.isScanning = false;
-    
-    if (!this.testMode) {
-      this.bleManager.stopDeviceScan();
+    if (this.scanningTimer) {
+      clearInterval(this.scanningTimer);
+      this.scanningTimer = null;
     }
     
-    this.log('BLE scanning stopped');
+    if (!this.isTestMode) {
+      this.bleManager.stopDeviceScan();
+    }
   }
-
+  
   /**
-   * Enable/disable test mode
+   * Encode profile data for BLE advertisement (max 31 bytes)
+   * Follows compact encoding for BLE advertisements
    */
-  setTestMode(enabled: boolean): void {
-    this.testMode = enabled;
-    log(`Test mode ${enabled ? 'enabled' : 'disabled'}`);
+  private encodeProfileForAdvertisement(profile: Profile): Uint8Array {
+    // In a real implementation, this would compress the profile data into a compact format
+    // For simplicity, we're just creating a placeholder here
+    // Max BLE advertisement data is 31 bytes, so we need to be very efficient
+    
+    // Example encoding strategy:
+    // - 16 bytes for UUID (compressed)
+    // - 10 bytes for name (truncated if needed)
+    // - 1 byte for role code
+    // - 4 bytes for company code
+    
+    // This is a placeholder implementation
+    const encoder = new TextEncoder();
+    const data = encoder.encode(JSON.stringify({
+      id: profile.uuid.substring(0, 8), // Truncated for demo
+      n: profile.name.substring(0, 10), // Truncated
+      r: profile.role?.charAt(0) || '', // Just first letter
+      c: profile.company?.substring(0, 4) || '' // First 4 letters
+    }));
+    
+    return data;
   }
-
+  
   /**
-   * Get BLE configuration
-   */
-  getBleConfig(): typeof DEFAULT_BLE_CONFIG {
-    return this.config;
-  }
-
-  /**
-   * Log BLE events (private method)
-   */
-  private log(message: string): void {
-    log(message);
-  }
-
-  /**
-   * Encode profile for BLE advertisement
-   */
-  private encodeProfileForAdvertisement(profile: Profile): any {
-    // In a real implementation, we would compress the profile data
-    // to fit within the BLE advertisement size constraints (31 bytes)
-    return {
-      uuid: profile.uuid,
-      name: profile.name,
-      isDiscoverable: true
-    };
-  }
-
-  /**
-   * Decode peer profile from BLE device
+   * Decode peer profile from BLE advertisement data
    */
   private decodePeerProfile(device: any): PeerProfile | null {
     try {
-      // In a real implementation, this would decode the compressed BLE data
-      // For now, we'll just create a mock profile based on the device ID
+      // In a real implementation, this would parse the compact encoded data
+      // For simplicity in the demo, we're creating a mock peer from the device
+      
       return {
         uuid: device.id,
         name: device.name || 'Unknown Device',
-        role: 'Unknown',
+        role: 'Discovered Peer',
         company: 'Unknown',
-        rssi: device.rssi,
+        rssi: device.rssi || -70,
         discoveredAt: new Date().toISOString()
       };
     } catch (error) {
-      log(`Error decoding peer profile: ${error}`);
+      console.error('Error decoding peer profile:', error);
       return null;
     }
   }
+  
+  /**
+   * Get the current BLE configuration
+   */
+  getBleConfig(): BleConfig {
+    return { ...this.config };
+  }
 }
 
-// Export a singleton instance
+// Singleton instance
 const BleService = new BleServiceImpl();
 export default BleService;
