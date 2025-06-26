@@ -1,0 +1,86 @@
+{
+  "issues": [
+    {
+      "title": "EPIC: App Setup & Profile Management",
+      "body": "## Description\nCore functionality for user profile setup and management\n\n**Epic:** App Setup & Profile Management\n**Priority:** High\n**Estimate:** 8",
+      "labels": ["epic", "enhancement"],
+      "assignees": [],
+      "milestone": "MVP"
+    },
+    {
+      "title": "US1.1: App Installation and Launch",
+      "body": "## User Story\nAs a user, I want to install and launch the app with a clean interface so that I can begin using it right away.\n\n**Acceptance Criteria:**\n- App installs successfully on both iOS and Android\n- Splash screen displays app logo\n- Main screen loads with basic navigation\n- No crashes on startup\n\n**Tasks:**\n- [ ] Set up React Native project\n- [ ] Configure basic navigation\n- [ ] Create splash screen\n- [ ] Test on both platforms\n\n**Estimate:** 3\n**Priority:** High",
+      "labels": ["user story", "enhancement", "UI/UX"],
+      "assignees": [],
+      "milestone": "MVP"
+    },
+    {
+      "title": "US1.2: Create Basic Profile",
+      "body": "## User Story\nAs a user, I want to create a basic profile with my name, role, company, and social links, so that others can discover me.\n\n**Acceptance Criteria:**\n- Profile creation form with required fields\n- Validation for required fields\n- Ability to save profile\n- Social links are optional\n\n**Tasks:**\n- [ ] Design profile form\n- [ ] Implement form validation\n- [ ] Add social links field\n- [ ] Implement save functionality\n\n**Estimate:** 5\n**Priority:** High",
+      "labels": ["user story", "enhancement", "profile"],
+      "assignees": [],
+      "milestone": "MVP"
+    },
+    {
+      "title": "US1.3: Persistent Profile Storage",
+      "body": "## User Story\nAs a user, I want my profile data to be saved securely on my device so that I don't have to re-enter it every time.\n\n**Acceptance Criteria:**\n- Profile data persists between app launches\n- Data is stored securely\n- Profile can be edited and updated\n\n**Tasks:**\n- [ ] Set up AsyncStorage/MMKV\n- [ ] Implement profile CRUD operations\n- [ ] Add data encryption\n- [ ] Test data persistence\n\n**Estimate:** 3\n**Priority:** High",
+      "labels": ["user story", "enhancement", "storage"],
+      "assignees": [],
+      "milestone": "MVP"
+    },
+    {
+      "title": "EPIC: Bluetooth Discovery Engine",
+      "body": "## Description\nCore functionality for Bluetooth-based peer discovery\n\n**Epic:** Bluetooth Discovery Engine\n**Priority:** High\n**Estimate:** 15",
+      "labels": ["epic", "enhancement", "bluetooth"],
+      "assignees": [],
+      "milestone": "MVP"
+    },
+    {
+      "title": "US2.1: BLE Profile Broadcasting",
+      "body": "## User Story\nAs a user, I want my device to broadcast my encoded profile using Bluetooth so others nearby can detect me.\n\n**Acceptance Criteria:**\n- Device broadcasts profile when discovery is active\n- Profile is encoded for transmission\n- Broadcast can be toggled on/off\n- Low battery impact\n\n**Tasks:**\n- [ ] Set up react-native-ble-plx\n- [ ] Implement profile encoding\n- [ ] Create BLE advertising service\n- [ ] Add toggle controls\n\n**Estimate:** 5\n**Priority:** High",
+      "labels": ["user story", "enhancement", "bluetooth"],
+      "assignees": [],
+      "milestone": "MVP"
+    },
+    {
+      "title": "US2.2: Peer Scanning",
+      "body": "## User Story\nAs a user, I want to scan for nearby users broadcasting their profiles so I can see who's nearby.\n\n**Acceptance Criteria:**\n- Scans for nearby BLE devices\n- Decodes received profiles\n- Displays discovered users\n- Handles scan timeouts\n\n**Tasks:**\n- [ ] Implement BLE scanning\n- [ ] Create profile decoding\n- [ ] Add scan timeout\n- [ ] Test with multiple devices\n\n**Estimate:** 5\n**Priority:** High",
+      "labels": ["user story", "enhancement", "bluetooth"],
+      "assignees": [],
+      "milestone": "MVP"
+    },
+    {
+      "title": "US2.3: Peer Expiration",
+      "body": "## User Story\nAs a user, I want the app to automatically expire peers from the list after a short timeout so I only see who's currently around.\n\n**Acceptance Criteria:**\n- Peers expire after 5 minutes of inactivity\n- UI updates when peers expire\n- Configurable timeout period\n- Last seen timestamp displayed\n\n**Tasks:**\n- [ ] Implement peer expiration timer\n- [ ] Add last seen timestamp\n- [ ] Update UI on peer expiration\n- [ ] Add settings for timeout\n\n**Estimate:** 3\n**Priority:** Medium",
+      "labels": ["user story", "enhancement", "UI/UX"],
+      "assignees": [],
+      "milestone": "MVP"
+    },
+    {
+      "title": "US2.4: Discovery Session Control",
+      "body": "## User Story\nAs a user, I want a clear button to start and stop peer discovery sessions so I have control over visibility.\n\n**Acceptance Criteria:**\n- Start/stop discovery button\n- Clear visual state for active/inactive\n- Battery usage indicator\n- Quick toggle in notification area\n\n**Tasks:**\n- [ ] Design session controls\n- [ ] Implement start/stop functionality\n- [ ] Add battery usage indicator\n- [ ] Create notification controls\n\n**Estimate:** 3\n**Priority:** High",
+      "labels": ["user story", "enhancement", "UI/UX"],
+      "assignees": [],
+      "milestone": "MVP"
+    }
+  ],
+  "milestones": [
+    {
+      "title": "MVP",
+      "description": "Minimum Viable Product - Core functionality for peer discovery",
+      "due_on": "2023-12-31T00:00:00Z"
+    }
+  ],
+  "labels": [
+    {"name": "epic", "color": "7D4698", "description": "Epic issue"},
+    {"name": "user story", "color": "1D76DB", "description": "User story"},
+    {"name": "enhancement", "color": "84B6EB", "description": "New feature or improvement"},
+    {"name": "UI/UX", "color": "FBCA04", "description": "User interface/experience related"},
+    {"name": "profile", "color": "BFDADC", "description": "User profile related"},
+    {"name": "storage", "color": "E4E669", "description": "Data storage related"},
+    {"name": "bluetooth", "color": "006B75", "description": "Bluetooth functionality"},
+    {"name": "bug", "color": "D93F0B", "description": "Something isn't working"},
+    {"name": "documentation", "color": "0075CA", "description": "Documentation improvements"},
+    {"name": "good first issue", "color": "7057FF", "description": "Good for newcomers"}
+  ]
+}
