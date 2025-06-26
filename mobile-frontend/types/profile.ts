@@ -9,6 +9,7 @@ export interface Profile {
   name?: string;
   role?: string;
   company?: string;
+  avatarUri?: string;
   socialLinks?: SocialLinks;
 }
 

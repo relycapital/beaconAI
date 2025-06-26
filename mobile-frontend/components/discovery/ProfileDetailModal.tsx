@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,12 @@ import {
   Clipboard,
   Platform,
   Alert,
+  Share,
 } from 'react-native';
-import { X, Linkedin, Twitter, Globe, Copy } from 'lucide-react-native';
+import { X, Linkedin, Twitter, Globe, Copy, Share2, Heart } from 'lucide-react-native';
 import { PeerProfile } from '@/types/profile';
+import { useDiscovery } from '@/context/DiscoveryContext';
+import Avatar from '@/components/common/Avatar';
 
 interface ProfileDetailModalProps {
   visible: boolean;
@@ -26,6 +29,14 @@ export default function ProfileDetailModal({
   onClose,
 }: ProfileDetailModalProps) {
   const slideAnim = useRef(new Animated.Value(0)).current;
+  const { logPeerInteraction } = useDiscovery();
+
+  // Log that the user viewed this peer's profile
+  useEffect(() => {
+    if (visible && peer) {
+      logPeerInteraction(peer.uuid, 'viewed');
+    }
+  }, [visible, peer]);
 
   React.useEffect(() => {
     if (visible) {
@@ -53,17 +64,44 @@ export default function ProfileDetailModal({
     Alert.alert('Copied', `${label} copied to clipboard`);
   };
 
-  const copyProfileToClipboard = () => {
-    const profileText = `
+  const getFormattedProfile = () => {
+    return `
 Name: ${peer.name || 'Not provided'}
 Role: ${peer.role || 'Not provided'}
 Company: ${peer.company || 'Not provided'}
 ${peer.socialLinks?.linkedin ? `LinkedIn: ${peer.socialLinks.linkedin}` : ''}
 ${peer.socialLinks?.twitter ? `Twitter: ${peer.socialLinks.twitter}` : ''}
 ${peer.socialLinks?.website ? `Website: ${peer.socialLinks.website}` : ''}
+
+Discovered via BeaconAI
     `.trim();
-    
+  };
+
+  const copyProfileToClipboard = async () => {
+    const profileText = getFormattedProfile();
     copyToClipboard(profileText, 'Profile');
+    await logPeerInteraction(peer.uuid, 'saved');
+  };
+
+  const shareProfile = async () => {
+    try {
+      const profileText = getFormattedProfile();
+      
+      if (Platform.OS === 'web') {
+        // Web fallback - copy to clipboard
+        copyToClipboard(profileText, 'Profile (web share not supported)');
+      } else {
+        await Share.share({
+          message: profileText,
+          title: `${peer.name || 'Contact'} - BeaconAI`,
+        });
+      }
+      
+      await logPeerInteraction(peer.uuid, 'shared');
+    } catch (error) {
+      console.error('Error sharing profile:', error);
+      Alert.alert('Share Error', 'Unable to share profile. Please try again.');
+    }
   };
 
   return (
@@ -98,17 +136,13 @@ ${peer.socialLinks?.website ? `Website: ${peer.socialLinks.website}` : ''}
 
           <ScrollView contentContainerStyle={styles.content}>
             <View style={styles.profileSection}>
-              <View style={styles.avatarContainer}>
-                <Text style={styles.avatarText}>
-                  {peer.name
-                    ? peer.name
-                        .split(' ')
-                        .map((n) => n[0])
-                        .join('')
-                        .toUpperCase()
-                    : '?'}
-                </Text>
-              </View>
+              <Avatar 
+                name={peer.name}
+                avatarUri={peer.avatarUri}
+                size={80}
+                backgroundColor="#EEF2FF"
+                textColor="#5046E5"
+              />
 
               <Text style={styles.name}>{peer.name || 'Unknown'}</Text>
 
@@ -183,19 +217,32 @@ ${peer.socialLinks?.website ? `Website: ${peer.socialLinks.website}` : ''}
 
             <View style={styles.metaSection}>
               <Text style={styles.metaText}>
-                First seen: {new Date().toLocaleTimeString()}
+                First seen: {peer.discoveredAt ? new Date(peer.discoveredAt).toLocaleString() : 'Unknown'}
               </Text>
+              {peer.rssi && (
+                <Text style={styles.metaText}>
+                  Signal strength: {peer.rssi} dBm
+                </Text>
+              )}
               <Text style={styles.metaText}>Device ID: {peer.uuid}</Text>
             </View>
           </ScrollView>
 
           <View style={styles.actionContainer}>
             <TouchableOpacity
-              style={styles.copyButton}
+              style={styles.actionButton}
               onPress={copyProfileToClipboard}
             >
-              <Copy size={18} color="#FFFFFF" style={styles.copyIcon} />
-              <Text style={styles.copyButtonText}>Copy Contact Info</Text>
+              <Copy size={18} color="#FFFFFF" style={styles.actionIcon} />
+              <Text style={styles.actionButtonText}>Copy</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.actionButton, styles.shareButton]}
+              onPress={shareProfile}
+            >
+              <Share2 size={18} color="#5046E5" style={styles.actionIcon} />
+              <Text style={[styles.actionButtonText, styles.shareButtonText]}>Share</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -246,24 +293,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#EEF2FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  avatarText: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#5046E5',
-  },
   name: {
     fontSize: 20,
     fontWeight: '700',
     color: '#0F172A',
+    marginTop: 16,
     marginBottom: 4,
   },
   role: {
@@ -306,11 +340,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   actionContainer: {
+    flexDirection: 'row',
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
+    gap: 12,
   },
-  copyButton: {
+  actionButton: {
+    flex: 1,
     backgroundColor: '#5046E5',
     borderRadius: 8,
     padding: 16,
@@ -318,12 +355,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  copyIcon: {
+  shareButton: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  actionIcon: {
     marginRight: 8,
   },
-  copyButtonText: {
+  actionButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  shareButtonText: {
+    color: '#5046E5',
   },
 });

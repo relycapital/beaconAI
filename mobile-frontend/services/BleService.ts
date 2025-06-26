@@ -289,7 +289,7 @@ class BleServiceImpl implements BleService {
         this.scanTimer = window.setInterval(() => {
           const mockPeer = this.createMockPeer();
           onDiscovery(mockPeer);
-        }, 10000); // Discover a new peer every 10 seconds
+        }, 1000); // Discover a new peer every 1 second in test mode
         
         return true;
       }

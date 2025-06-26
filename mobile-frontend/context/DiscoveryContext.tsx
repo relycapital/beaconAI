@@ -1,9 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Alert, Platform, AppState, AppStateStatus } from 'react-native';
 import { useProfile } from './ProfileContext';
+import { useSettings } from './SettingsContext';
 import { PeerProfile } from '@/types/profile';
 import bleService from '@/services/BleService';
+import sessionService from '@/services/SessionService';
 import { BleDiscoveryStatus, BlePermissionStatus, BleState } from '@/types/ble';
+import { DiscoverySession } from '@/types/session';
 
 
 
@@ -14,22 +17,26 @@ interface DiscoveryContextType {
   isDiscovering: boolean;
   status: DiscoveryStatus;
   nearbyPeers: PeerProfile[];
+  currentSession: DiscoverySession | null;
   startDiscovery: () => void;
   stopDiscovery: () => void;
   permissionStatus: BlePermissionStatus;
   requestPermissions: () => Promise<boolean>;
   bleState: BleState;
+  logPeerInteraction: (peerId: string, type: 'viewed' | 'saved' | 'shared') => Promise<void>;
 }
 
 const DiscoveryContext = createContext<DiscoveryContextType>({
   isDiscovering: false,
   status: 'idle',
   nearbyPeers: [],
+  currentSession: null,
   startDiscovery: () => {},
   stopDiscovery: () => {},
   permissionStatus: BlePermissionStatus.UNKNOWN,
   requestPermissions: async () => false,
-  bleState: BleState.UNKNOWN
+  bleState: BleState.UNKNOWN,
+  logPeerInteraction: async () => {}
 });
 
 export const useDiscovery = () => useContext(DiscoveryContext);
@@ -38,9 +45,11 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({
   children 
 }) => {
   const { profile, isProfileComplete } = useProfile();
+  const { settings } = useSettings();
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [status, setStatus] = useState<DiscoveryStatus>('idle');
   const [nearbyPeers, setNearbyPeers] = useState<PeerProfile[]>([]);
+  const [currentSession, setCurrentSession] = useState<DiscoverySession | null>(null);
   const [permissionStatus, setPermissionStatus] = useState<BlePermissionStatus>(BlePermissionStatus.UNKNOWN);
   const [bleState, setBleState] = useState<BleState>(BleState.UNKNOWN);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
@@ -126,6 +135,16 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const startDiscovery = async () => {
+    // Check if privacy mode is enabled
+    if (settings.privacyMode) {
+      Alert.alert(
+        'Privacy Mode Enabled',
+        'Discovery is disabled in privacy mode. Please disable privacy mode in settings to continue.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
     // Check if profile is complete
     if (!isProfileComplete) {
       Alert.alert(
@@ -163,16 +182,25 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     }
 
+    // Start discovery session
+    const session = await sessionService.startSession();
+    setCurrentSession(session);
+    
     // Start discovery process
     setIsDiscovering(true);
     setStatus('scanning_and_advertising');
     setNearbyPeers([]);
     
-    // Start advertising profile
-    const advertisingStarted = await bleService.startAdvertising(profile);
+    // Start advertising profile (only if advertising is enabled)
+    const advertisingStarted = settings.advertisingEnabled 
+      ? await bleService.startAdvertising(profile)
+      : true; // Consider advertising "started" if disabled
     
     // Start scanning for peers
     const scanningStarted = await bleService.startScanning((discoveredPeer) => {
+      // Add peer to current session
+      sessionService.addPeerToSession(discoveredPeer.uuid);
+      
       // Process discovered peer
       setNearbyPeers(prevPeers => {
         // Check if peer already exists
@@ -192,8 +220,8 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({
     
     // Update status based on what operations succeeded
     if (advertisingStarted && scanningStarted) {
-      setStatus('scanning_and_advertising');
-    } else if (advertisingStarted) {
+      setStatus(settings.advertisingEnabled ? 'scanning_and_advertising' : 'scanning');
+    } else if (advertisingStarted && settings.advertisingEnabled) {
       setStatus('advertising');
     } else if (scanningStarted) {
       setStatus('scanning');
@@ -216,16 +244,25 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Set up interval to remove expired peers
     peerExpirationIntervalRef.current = window.setInterval(() => {
-      const expirationTime = bleService.getBleConfig().expirationTimeMs;
+      const expirationTimeMs = settings.autoExpireTimeout * 60 * 1000;
       const now = new Date().getTime();
       
       setNearbyPeers(prevPeers => {
-        return prevPeers.filter(peer => {
+        const activePeers = prevPeers.filter(peer => {
           if (!peer.discoveredAt) return true;
           
           const peerTime = new Date(peer.discoveredAt).getTime();
-          return (now - peerTime) < expirationTime;
+          const isActive = (now - peerTime) < expirationTimeMs;
+          
+          // Log when peers expire
+          if (!isActive) {
+            console.log(`Peer ${peer.name} (${peer.uuid}) expired after ${settings.autoExpireTimeout} minutes`);
+          }
+          
+          return isActive;
         });
+        
+        return activePeers;
       });
     }, 30 * 1000);
   };
@@ -233,6 +270,10 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({
   const stopDiscovery = async () => {
     setIsDiscovering(false);
     setStatus('idle');
+    
+    // End current session
+    await sessionService.endCurrentSession();
+    setCurrentSession(null);
     
     // Stop BLE operations
     await bleService.stopAdvertising();
@@ -242,17 +283,23 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({
     cleanup();
   };
 
+  const logPeerInteraction = async (peerId: string, type: 'viewed' | 'saved' | 'shared') => {
+    await sessionService.logConnection(peerId, type);
+  };
+
   return (
     <DiscoveryContext.Provider
       value={{
         isDiscovering,
         status,
         nearbyPeers,
+        currentSession,
         startDiscovery,
         stopDiscovery,
         permissionStatus,
         requestPermissions,
-        bleState
+        bleState,
+        logPeerInteraction
       }}
     >
       {children}

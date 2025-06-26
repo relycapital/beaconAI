@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { PeerProfile } from '@/types/profile';
 import { formatDistanceToBrand } from '@/utils/format';
+import Avatar from '@/components/common/Avatar';
 
 interface PeerCardProps {
   peer: PeerProfile;
@@ -23,11 +24,11 @@ export default function PeerCard({ peer, onPress }: PeerCardProps) {
   return (
     <Animated.View style={{ opacity }}>
       <TouchableOpacity style={styles.container} onPress={onPress}>
-        <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>
-            {peer.name ? peer.name.split(' ').map(n => n[0]).join('').toUpperCase() : '?'}
-          </Text>
-        </View>
+        <Avatar 
+          name={peer.name}
+          avatarUri={peer.avatarUri}
+          size={48}
+        />
         
         <View style={styles.infoContainer}>
           <Text style={styles.name}>{peer.name || 'Unknown'}</Text>
@@ -70,19 +71,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2.5,
     elevation: 2,
-  },
-  avatarContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#EEF2FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#5046E5',
   },
   infoContainer: {
     flex: 1,

@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useProfile } from '@/context/ProfileContext';
 import Header from '@/components/common/Header';
+import Avatar from '@/components/common/Avatar';
 import { CreditCard as Edit, Linkedin, Twitter, Globe } from 'lucide-react-native';
 
 export default function ProfileScreen() {
@@ -136,11 +137,11 @@ export default function ProfileScreen() {
             </View>
           ) : (
             <View style={styles.profileDisplay}>
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>
-                  {name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                </Text>
-              </View>
+              <Avatar 
+                name={name}
+                avatarUri={profile.avatarUri}
+                size={120}
+              />
               
               <Text style={styles.displayName}>{name}</Text>
               
@@ -261,24 +262,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 24,
   },
-  avatarPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#5046E5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  avatarText: {
-    color: '#FFFFFF',
-    fontSize: 36,
-    fontWeight: '600',
-  },
   displayName: {
     fontSize: 24,
     fontWeight: '700',
     color: '#0F172A',
+    marginTop: 16,
     marginBottom: 4,
   },
   displayRole: {

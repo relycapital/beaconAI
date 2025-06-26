@@ -3,16 +3,14 @@ import { View, Text, StyleSheet, Switch, Alert, TouchableOpacity, ScrollView } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useProfile } from '@/context/ProfileContext';
 import { useDiscovery } from '@/context/DiscoveryContext';
+import { useSettings } from '@/context/SettingsContext';
 import Header from '@/components/common/Header';
-import { Trash2, TriangleAlert as AlertTriangle, CircleHelp as HelpCircle, Shield, Clock } from 'lucide-react-native';
+import { Trash2, TriangleAlert as AlertTriangle, CircleHelp as HelpCircle, Shield, Clock, Bell, Bluetooth } from 'lucide-react-native';
 
 export default function SettingsScreen() {
   const { resetProfile } = useProfile();
   const { isDiscovering, stopDiscovery } = useDiscovery();
-  
-  const [autoDisconnect, setAutoDisconnect] = useState(true);
-  const [showDistance, setShowDistance] = useState(false);
-  const [dataRetention, setDataRetention] = useState(true);
+  const { settings, updateSettings, resetSettings } = useSettings();
   
   const handleResetProfile = () => {
     Alert.alert(
@@ -48,36 +46,48 @@ export default function SettingsScreen() {
           <View style={styles.setting}>
             <View style={styles.settingTextContainer}>
               <View style={styles.settingTitleContainer}>
-                <Clock size={20} color="#334155" style={styles.settingIcon} />
-                <Text style={styles.settingTitle}>Auto-disconnect after 5 minutes</Text>
+                <Bluetooth size={20} color="#334155" style={styles.settingIcon} />
+                <Text style={styles.settingTitle}>Bluetooth Advertising</Text>
               </View>
               <Text style={styles.settingDescription}>
-                Automatically stop discovery after 5 minutes of inactivity
+                Allow your device to be discovered by nearby peers
               </Text>
             </View>
             <Switch
-              value={autoDisconnect}
-              onValueChange={setAutoDisconnect}
+              value={settings.advertisingEnabled}
+              onValueChange={(value) => updateSettings({ advertisingEnabled: value })}
               trackColor={{ false: '#CBD5E1', true: '#C7D2FE' }}
-              thumbColor={autoDisconnect ? '#5046E5' : '#F8FAFC'}
+              thumbColor={settings.advertisingEnabled ? '#5046E5' : '#F8FAFC'}
             />
           </View>
           
           <View style={styles.setting}>
             <View style={styles.settingTextContainer}>
               <View style={styles.settingTitleContainer}>
-                <Shield size={20} color="#334155" style={styles.settingIcon} />
-                <Text style={styles.settingTitle}>Show approximate distance</Text>
+                <Clock size={20} color="#334155" style={styles.settingIcon} />
+                <Text style={styles.settingTitle}>Auto-expire peers ({settings.autoExpireTimeout} min)</Text>
               </View>
               <Text style={styles.settingDescription}>
-                Display relative signal strength as approximate distance
+                Remove discovered peers after {settings.autoExpireTimeout} minutes of inactivity
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.setting}>
+            <View style={styles.settingTextContainer}>
+              <View style={styles.settingTitleContainer}>
+                <Bell size={20} color="#334155" style={styles.settingIcon} />
+                <Text style={styles.settingTitle}>Notifications</Text>
+              </View>
+              <Text style={styles.settingDescription}>
+                Show notifications when new peers are discovered
               </Text>
             </View>
             <Switch
-              value={showDistance}
-              onValueChange={setShowDistance}
+              value={settings.notificationsEnabled}
+              onValueChange={(value) => updateSettings({ notificationsEnabled: value })}
               trackColor={{ false: '#CBD5E1', true: '#C7D2FE' }}
-              thumbColor={showDistance ? '#5046E5' : '#F8FAFC'}
+              thumbColor={settings.notificationsEnabled ? '#5046E5' : '#F8FAFC'}
             />
           </View>
         </View>
@@ -88,18 +98,18 @@ export default function SettingsScreen() {
           <View style={styles.setting}>
             <View style={styles.settingTextContainer}>
               <View style={styles.settingTitleContainer}>
-                <AlertTriangle size={20} color="#334155" style={styles.settingIcon} />
-                <Text style={styles.settingTitle}>Discovery data retention</Text>
+                <Shield size={20} color="#334155" style={styles.settingIcon} />
+                <Text style={styles.settingTitle}>Privacy Mode</Text>
               </View>
               <Text style={styles.settingDescription}>
-                Store discovered peer profiles for the current session only
+                Disable all peer visibility and discovery features
               </Text>
             </View>
             <Switch
-              value={dataRetention}
-              onValueChange={setDataRetention}
+              value={settings.privacyMode}
+              onValueChange={(value) => updateSettings({ privacyMode: value })}
               trackColor={{ false: '#CBD5E1', true: '#C7D2FE' }}
-              thumbColor={dataRetention ? '#5046E5' : '#F8FAFC'}
+              thumbColor={settings.privacyMode ? '#5046E5' : '#F8FAFC'}
             />
           </View>
         </View>
@@ -114,6 +124,27 @@ export default function SettingsScreen() {
         </View>
         
         <View style={styles.dangerSection}>
+          <TouchableOpacity 
+            style={[styles.dangerButton, { marginBottom: 12 }]}
+            onPress={() => {
+              Alert.alert(
+                'Reset Settings',
+                'Are you sure you want to reset all settings to default values?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { 
+                    text: 'Reset', 
+                    style: 'destructive',
+                    onPress: () => resetSettings()
+                  }
+                ]
+              );
+            }}
+          >
+            <AlertTriangle size={20} color="#F59E0B" />
+            <Text style={[styles.dangerButtonText, { color: '#F59E0B' }]}>Reset Settings</Text>
+          </TouchableOpacity>
+          
           <TouchableOpacity 
             style={styles.dangerButton}
             onPress={handleResetProfile}
