@@ -1,0 +1,73 @@
+# BeaconAI Project Ruleset
+
+## 📱 Project-Specific Standards
+
+### Core Technologies
+- **React Native** with Expo for cross-platform mobile development
+- **AsyncStorage/MMKV** for local data persistence
+- **react-native-ble-plx** for Bluetooth Low Energy functionality
+- **Zustand or Context API** for state management
+
+### Code Architecture
+- **Component-Based Design**: Create reusable UI components in the `/components` directory
+- **Context-Based State Management**: Use React Context API for app-wide state
+- **Type Safety**: Use TypeScript for all new files
+- **Offline-First**: All features must work without internet connectivity
+
+### BLE Implementation
+- **Battery Optimization**: Minimize scanning intervals and balance with discovery effectiveness
+- **Encoded Profiles**: Use compact encoding for BLE advertisements (max 31 bytes)
+- **Privacy-First**: Include controls for user visibility and data sharing
+- **Graceful Degradation**: Handle cases where Bluetooth is unavailable or permissions denied
+
+## 🧪 Testing Standards (Based on SSCS)
+
+### BDD Test Format
+```javascript
+describe('Bluetooth Discovery', () => {
+  describe('peer expiration', () => {
+    it('should remove peers after 5 minutes of inactivity', () => {
+      // Test implementation
+    });
+  });
+});
+
+Testing Requirements
+Unit Tests: All core logic must have unit tests
+Device Testing: Must verify functionality on at least 1 iOS and 1 Android device
+Mock BLE: Use mock implementations for testing BLE functionality in non-device environments
+🔄 Workflow Standards (Based on SSCS)
+Branch Naming
+feature/{id} for new features
+bug/{id} for bug fixes
+chore/{id} for maintenance tasks
+TDD Workflow
+Write failing tests (WIP: Red Tests)
+Implement code to make them pass (WIP: Green Tests)
+Refactor and commit (Refactor complete)
+Commit Messages
+Format: [Type] #{id} - Brief description
+Example: [Feature] #6 - Add BLE advertising functionality
+Code Review
+Must include test coverage
+Must respect battery optimization guidelines
+Must handle permissions gracefully
+iOS and Android compatibility must be maintained
+🎨 UI/UX Standards
+Clear Status Indicators: Always show discovery status to user
+Battery Impact Transparency: Indicate power usage of BLE operations
+Minimal UI: Focus on simplicity and ease of use
+Error Handling: Provide clear feedback for Bluetooth issues
+📚 Documentation Standards
+Component Documentation: Include purpose and props for all components
+BLE Documentation: Document payload format and scanning parameters
+Inline Comments: Explain complex BLE operations and state management
+
+
+
+This ruleset combines:
+1. The Semantic Seed Coding Standards' focus on Test-Driven Development, workflow, and code quality
+2. BeaconAI-specific requirements based on our codebase analysis
+3. Special considerations for Bluetooth, battery optimization, and privacy concerns
+
+Would you like me to make any adjustments to this ruleset before you add it to your project?
