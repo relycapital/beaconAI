@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, Switch, Alert, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Switch, Alert, TouchableOpacity, ScrollView, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useProfile } from '@/context/ProfileContext';
 import { useDiscovery } from '@/context/DiscoveryContext';
@@ -11,6 +11,8 @@ export default function SettingsScreen() {
   const { resetProfile } = useProfile();
   const { isDiscovering, stopDiscovery } = useDiscovery();
   const { settings, updateSettings, resetSettings } = useSettings();
+  const [showScanIntervalModal, setShowScanIntervalModal] = useState(false);
+  const [tempScanInterval, setTempScanInterval] = useState(settings.scanInterval.toString());
   
   const handleResetProfile = () => {
     Alert.alert(
@@ -33,6 +35,26 @@ export default function SettingsScreen() {
         },
       ],
     );
+  };
+
+  const handleScanIntervalSave = () => {
+    const intervalValue = parseInt(tempScanInterval, 10);
+    if (isNaN(intervalValue) || intervalValue < 5 || intervalValue > 300) {
+      Alert.alert(
+        'Invalid Scan Interval',
+        'Please enter a valid scan interval between 5 and 300 seconds.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
+    updateSettings({ scanInterval: intervalValue });
+    setShowScanIntervalModal(false);
+  };
+
+  const openScanIntervalModal = () => {
+    setTempScanInterval(settings.scanInterval.toString());
+    setShowScanIntervalModal(true);
   };
   
   return (
@@ -60,6 +82,19 @@ export default function SettingsScreen() {
               thumbColor={settings.advertisingEnabled ? '#5046E5' : '#F8FAFC'}
             />
           </View>
+          
+          <TouchableOpacity style={styles.setting} onPress={openScanIntervalModal}>
+            <View style={styles.settingTextContainer}>
+              <View style={styles.settingTitleContainer}>
+                <Clock size={20} color="#334155" style={styles.settingIcon} />
+                <Text style={styles.settingTitle}>Scan Interval ({settings.scanInterval}s)</Text>
+              </View>
+              <Text style={styles.settingDescription}>
+                How often to scan for new peers (5-300 seconds)
+              </Text>
+            </View>
+            <Text style={styles.settingValue}>Change</Text>
+          </TouchableOpacity>
           
           <View style={styles.setting}>
             <View style={styles.settingTextContainer}>
@@ -156,6 +191,49 @@ export default function SettingsScreen() {
         
         <Text style={styles.versionText}>BeaconAI v1.0.0</Text>
       </ScrollView>
+
+      {/* Scan Interval Modal */}
+      <Modal
+        visible={showScanIntervalModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowScanIntervalModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Scan Interval</Text>
+            <Text style={styles.modalDescription}>
+              Set how often to scan for new peers (5-300 seconds)
+            </Text>
+            
+            <TextInput
+              style={styles.modalInput}
+              value={tempScanInterval}
+              onChangeText={setTempScanInterval}
+              placeholder="Enter scan interval in seconds"
+              keyboardType="numeric"
+              maxLength={3}
+              autoFocus
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowScanIntervalModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleScanIntervalSave}
+              >
+                <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -216,6 +294,11 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginLeft: 28,
   },
+  settingValue: {
+    fontSize: 14,
+    color: '#5046E5',
+    fontWeight: '500',
+  },
   supportItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -251,5 +334,66 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#94A3B8',
     marginBottom: 24,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    margin: 20,
+    width: '80%',
+    maxWidth: 320,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#F3F4F6',
+  },
+  cancelButtonText: {
+    color: '#374151',
+    fontWeight: '500',
+  },
+  saveButton: {
+    backgroundColor: '#5046E5',
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });

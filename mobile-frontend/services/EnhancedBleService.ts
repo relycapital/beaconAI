@@ -116,15 +116,22 @@ export class EnhancedBleService {
       
       await bleService.startAdvertising(basicProfile);
       
-      // Then add enhanced advertising data
-      const enhancedAdvertisementData = this.createEnhancedAdvertisementData(profile);
+      // Then add enhanced advertising data with crypto tokens
+      const enhancedAdvertisementData = await this.createEnhancedAdvertisementData(profile);
+      
+      // Store the full token for exchange when requested
+      if (profile.signature) {
+        await this.storeProfileToken(profile);
+      }
       
       // In a real implementation, this would use additional BLE services
       console.log('Enhanced advertising data prepared:', {
         serviceUUID: this.ENHANCED_SERVICE_UUID,
         capabilities: this.supportedCapabilities,
         profileVersion: profile.tokenMetadata?.version || '1.0',
-        enhancementLevel: profile.enhancementLevel
+        enhancementLevel: profile.enhancementLevel,
+        hasSignature: !!profile.signature,
+        biometricLevel: profile.biometricVector ? 'present' : 'none'
       });
       
     } catch (error) {
@@ -387,9 +394,36 @@ export class EnhancedBleService {
   }
 
   /**
+   * Store profile token for exchange
+   */
+  private async storeProfileToken(profile: EnhancedProfile): Promise<void> {
+    try {
+      // Store the signed profile token for later exchange
+      // In a real implementation, this might be stored in secure storage
+      console.log('Profile token stored for advertising:', {
+        uuid: profile.uuid,
+        hasSignature: !!profile.signature,
+        enhancementLevel: profile.enhancementLevel
+      });
+    } catch (error) {
+      console.error('Failed to store profile token:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Create enhanced advertisement data
    */
-  private createEnhancedAdvertisementData(profile: EnhancedProfile): any {
+  private async createEnhancedAdvertisementData(profile: EnhancedProfile): Promise<any> {
+    // Create compact token representation for advertising
+    const tokenSummary = profile.signature ? {
+      hasSignature: true,
+      algorithm: profile.signature.algorithm,
+      timestamp: profile.signature.timestamp,
+      // Include only essential crypto data for advertising
+      publicKeyHash: profile.signature.publicKey?.substring(0, 16) + '...'
+    } : { hasSignature: false };
+
     return {
       localName: `BeaconAI-Enhanced-${profile.name?.substring(0, 8) || 'Unknown'}`,
       serviceUUIDs: [this.ENHANCED_SERVICE_UUID],
@@ -398,7 +432,9 @@ export class EnhancedBleService {
           version: profile.tokenMetadata?.version || '1.0',
           enhancementLevel: profile.enhancementLevel,
           capabilities: this.supportedCapabilities,
-          profileId: profile.uuid
+          profileId: profile.uuid,
+          cryptoToken: tokenSummary,
+          biometricPresent: !!profile.biometricVector
         }
       }
     };

@@ -1,7 +1,73 @@
 // Jest setup for BeaconAI project
 // Following Semantic Seed Coding Standards for TDD workflow
 
-// Mock the react-native modules
+// Setup global fetch polyfill
+global.fetch = jest.fn().mockResolvedValue({
+  ok: true,
+  status: 200,
+  json: jest.fn().mockResolvedValue({}),
+  text: jest.fn().mockResolvedValue(''),
+  blob: jest.fn().mockResolvedValue(new Blob()),
+});
+
+// Mock TensorFlow.js modules
+jest.mock('@tensorflow/tfjs', () => ({
+  ready: jest.fn().mockResolvedValue(undefined),
+  version: { tfjs: '4.0.0' },
+  getBackend: jest.fn().mockReturnValue('cpu'),
+  util: {
+    decodeString: jest.fn(),
+  },
+  browser: {
+    decodeImage: jest.fn().mockReturnValue({
+      shape: [224, 224, 3],
+      dispose: jest.fn(),
+    }),
+  },
+  randomUniform: jest.fn().mockReturnValue({
+    shape: [224, 224, 3],
+    dispose: jest.fn(),
+  }),
+}));
+
+jest.mock('@tensorflow/tfjs-react-native');
+jest.mock('@tensorflow/tfjs-backend-cpu');
+
+jest.mock('@tensorflow-models/blazeface', () => ({
+  load: jest.fn().mockResolvedValue({
+    estimateFaces: jest.fn().mockResolvedValue([
+      {
+        landmarks: [[100, 100], [200, 200], [150, 150]],
+        probability: [0.95],
+        topLeft: [50, 50],
+        bottomRight: [250, 250],
+      },
+    ]),
+  }),
+}));
+
+jest.mock('@tensorflow-models/universal-sentence-encoder', () => ({
+  load: jest.fn().mockResolvedValue({
+    embed: jest.fn().mockResolvedValue({
+      data: jest.fn().mockResolvedValue(new Float32Array(512).fill(0.1)),
+      dispose: jest.fn(),
+    }),
+  }),
+}));
+
+// Mock expo crypto
+jest.mock('expo-crypto', () => ({
+  randomUUID: jest.fn(() => `test-uuid-${Math.random()}`),
+  getRandomValues: jest.fn((array) => {
+    for (let i = 0; i < array.length; i++) {
+      array[i] = Math.floor(Math.random() * 256);
+    }
+    return array;
+  }),
+  digestStringAsync: jest.fn().mockResolvedValue('mocked-hash'),
+}));
+
+// Mock react-native modules
 jest.mock('react-native', () => {
   const rn = jest.requireActual('react-native');
   rn.NativeModules.BleModule = {
